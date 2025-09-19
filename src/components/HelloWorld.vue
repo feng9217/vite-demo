@@ -1,5 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, isRef, shallowRef, triggerRef, customRef, reactive } from 'vue'
+// ref做深层次响应 shallow做浅层次响应(只到.value)
+// ref底层更新逻辑会调用triggerRef
+// import type { Ref } from 'vue'
+
+function MyRef<T>(value: T) {
+  return customRef((track, trigger) => {
+    return {
+      get() {
+        track()
+        return value
+      },
+      set(newVal) {
+        value = newVal
+        trigger()
+      }
+    }
+  })
+}
+
+const obj = MyRef<string>('自定义ref更新')
 
 defineProps<{ msg: string }>()
 
@@ -7,9 +27,15 @@ const count = ref(0) // 用ref或reactive包裹才是响应式
 // const count:string = 0
 
 const reduceCount = () => {
+  console.log(isRef(count))
   if (count.value === 0) return
   count.value--
+  obj.value = '更新'
 }
+// type M = { name: string }
+// const Man1 = ref<M>({ name: '第一种定义方式' })
+// const Man2:Ref<M> = ref({ name: '第二种定义方式' })
+// const Man3 = ref({ name: '第三种方式 范式 会自己做类型推导' })
 </script>
 
 <template>
