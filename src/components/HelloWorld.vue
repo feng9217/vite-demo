@@ -1,8 +1,19 @@
 <script setup lang="ts">
-import { ref, isRef, shallowRef, triggerRef, customRef, reactive } from 'vue'
+import { ref, isRef, shallowRef, triggerRef, customRef, reactive, readonly, shallowReactive, toRef, toRefs, toRaw } from 'vue'
 // ref做深层次响应 shallow做浅层次响应(只到.value)
 // ref底层更新逻辑会调用triggerRef
 // import type { Ref } from 'vue'
+// 带shallow的都是浅层的 节约性能用的
+// ref 取值 赋值 都需要加.value reactive不需要加.value
+// reactive 是proxy的 不能直接赋值 否则会破坏响应式对象
+// 上一条的解决方案 数组可以 <push 解构> 来添加一个对象 a.push(...b)
+// 或者把数组作为一个属性去操作 如 a.b = newarr
+
+// toRef 只能修改响应式对象的值 非响应式视图毫无变化 可以用来修改修改某个对象的属性
+// 如 const foo = reactive({ bar: '1', a: '2', c: '3' })
+// const d = toRef(foo, 'bar')
+// d.value = 'hahah' 同时会触发 foo对象中对应字段的更新
+// 使用场景 把响应式的某个对象传递出去又不想丢失响应
 
 function MyRef<T>(value: T) {
   return customRef((track, trigger) => {
@@ -36,6 +47,13 @@ const reduceCount = () => {
 // const Man1 = ref<M>({ name: '第一种定义方式' })
 // const Man2:Ref<M> = ref({ name: '第二种定义方式' })
 // const Man3 = ref({ name: '第三种方式 范式 会自己做类型推导' })
+const man = reactive({ name: '1', age: 2, like: 3, addr: '4' })
+const addr = toRef(man, 'addr')
+const { name, age, like } = toRefs(man)
+const change = () => {
+  console.log(name, age, like)
+  console.log(addr)
+}
 </script>
 
 <template>
@@ -66,6 +84,7 @@ const reduceCount = () => {
     >.
   </p>
   <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p>
+  <button @click="change">点我</button>
 </template>
 
 <style scoped>
