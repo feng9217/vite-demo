@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, isRef, shallowRef, triggerRef, customRef, reactive, readonly, shallowReactive, toRef, toRefs, toRaw } from 'vue'
+import { ref, isRef, shallowRef, triggerRef, customRef, reactive, readonly, shallowReactive, toRef, toRefs, toRaw, computed } from 'vue'
 // ref做深层次响应 shallow做浅层次响应(只到.value)
 // ref底层更新逻辑会调用triggerRef
 // import type { Ref } from 'vue'
@@ -14,6 +14,8 @@ import { ref, isRef, shallowRef, triggerRef, customRef, reactive, readonly, shal
 // const d = toRef(foo, 'bar')
 // d.value = 'hahah' 同时会触发 foo对象中对应字段的更新
 // 使用场景 把响应式的某个对象传递出去又不想丢失响应
+
+// toRaw 将一个响应式对象还原成原始对象(剥离proxy那层)
 
 function MyRef<T>(value: T) {
   return customRef((track, trigger) => {
@@ -32,7 +34,7 @@ function MyRef<T>(value: T) {
 
 const obj = MyRef<string>('自定义ref更新')
 
-defineProps<{ msg: string }>()
+const props = defineProps<{ msg: string }>()
 
 const count = ref(0) // 用ref或reactive包裹才是响应式
 // const count:string = 0
@@ -49,11 +51,98 @@ const reduceCount = () => {
 // const Man3 = ref({ name: '第三种方式 范式 会自己做类型推导' })
 const man = reactive({ name: '1', age: 2, like: 3, addr: '4' })
 const addr = toRef(man, 'addr')
+// refs适用于解构reactive赋值场景
 const { name, age, like } = toRefs(man)
 const change = () => {
   console.log(name, age, like)
   console.log(addr)
 }
+
+// Vue3 和 Vue2 的不同 核心就是响应式原理改变了
+// Vue3 使用的是 Proxy Vue2 使用的是 Object.defineProperty
+// Vue2 的不足 对象只能劫持 设置好的数据/新增的数据需要Vue.set()操作 数组只能操作七种方法 修改某一项值无法劫持
+// 小满 Vue3+vite 教程有一章(第八章 第九章之间)专讲实现
+
+// computed
+// 当依赖的<属性的值>发生改变 才会触发改变 依赖的值不发生变化 则使用<缓存>中的属性值
+let firstName = ref<string>('张')
+let lastName = ref<string>('三')
+let computName = computed<string>({
+  get() {
+    return firstName.value + '-' + lastName.value
+  },
+  set(newval) {
+    console.log(newval)
+    // [firstName.value, lastName.value] = newval.split('-')
+    const parts = newval.split('-')
+    firstName.value = parts[0] || ''
+    lastName.value = parts[1] || ''
+  },
+})
+
+const changeName = () => {
+  computName.value = '更改-名字'
+}
+
+let keyWord = ref<string>('')
+
+interface Data {
+  name: string,
+  price: number,
+  num: number
+}
+
+let data = reactive<Data[]>([
+  {
+    name: '小黄鸭',
+    price: 12,
+    num: 2
+  },
+  {
+    name: '大菜狗',
+    price: 20,
+    num: 3
+  },
+  {
+    name: '小花猫',
+    price: 16,
+    num: 5
+  },
+  {
+    name: '大黑猩',
+    price: 32,
+    num: 2
+  },
+])
+
+// let $total = ref<number>(0)
+
+// const total = () => {
+//   $total.value = data.reduce((prev:number, next:Data) => {
+//     return prev + next.num * next.price
+//   }, 0)
+// }
+
+const total = computed(() => {
+  // 没添加搜索版本
+  // return data.reduce((prev:number, next:Data) => {
+  //   return prev + next.num * next.price
+  // }, 0)
+  // 添加搜索后版本
+  return data.filter(i => i.name.includes(keyWord.value)).reduce((prev:number, next:Data) => {
+    return prev + next.num * next.price
+  }, 0)
+})
+
+const del = (index:number) => {
+  data.splice(index, 1)
+}
+
+const searchData = computed(() => {
+  return data.filter((item:Data) => {
+    return item.name.includes(keyWord.value)
+  })
+})
 </script>
 
 <template>
@@ -85,6 +174,52 @@ const change = () => {
   </p>
   <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p>
   <button @click="change">点我</button>
+  <div>
+    <input type="text" v-model="firstName">
+    <input type="text" v-model="lastName">
+  </div>
+  <div>{{ computName }}</div>
+  <button @click="changeName">点我computed</button>
+  <div>------*-------</div>
+  <div>computed练习</div>
+  <div>------*-------</div>
+  <div>
+    <input type="text" placeholder="搜索" v-model="keyWord">
+  </div>
+  <div style="margin-top: 20px;">
+    <table border width="100%" cellpadding="0" cellspacing="0">
+      <thead>
+        <tr>
+          <th>物品名称</th>
+          <th>物品单价</th>
+          <th>物品数量</th>
+          <th>物品总价</th>
+          <th>物品操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(item, index) in searchData">
+          <td align="center">{{ item.name }}</td>
+          <td align="center">{{ item.price }}</td>
+          <td align="center">
+            <button @click="item.num > 1 ? item.num-- : null">-</button>
+            {{ item.num }}
+            <button @click="item.num < 99 ? item.num++ : null">+</button>
+          </td>
+          <td align="center">{{ item.num * item.price }}</td>
+          <td><button @click="del(index)">删除</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" align="right">
+            <!-- 总价: {{ $total }} -->
+            总价: {{ total }}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
 </template>
 
 <style scoped>
