@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, isRef, shallowRef, triggerRef, customRef, reactive, readonly, shallowReactive, toRef, toRefs, toRaw, computed } from 'vue'
+import { ref, isRef, shallowRef, triggerRef, customRef, reactive, readonly, shallowReactive, toRef, toRefs, toRaw, computed, watch, watchEffect, stop } from 'vue'
 // ref做深层次响应 shallow做浅层次响应(只到.value)
 // ref底层更新逻辑会调用triggerRef
 // import type { Ref } from 'vue'
@@ -143,6 +143,43 @@ const searchData = computed(() => {
     return item.name.includes(keyWord.value)
   })
 })
+
+// ref 或者 reactive 包裹起来的对象才能watch
+let message = ref('小满 1')
+let message1 = ref('大满 2')
+let message2 = reactive({
+  foo: {
+    bar: {
+      name: '小满 2'
+    }
+  }
+})
+
+watch([message, message1], (newval, oldval) => {
+  console.log(newval, oldval)
+}, {
+  deep: true,
+  flush: 'pre', // pre sync post
+})
+
+// watch ref需要手动开deep reactive默认开启
+watch(() => message2.foo.bar.name, (newval, oldval) => {
+  console.log(newval, oldval)
+})
+watchEffect(() => {
+  console.log(message, '=====')
+  console.log(message1, '------')
+  // onInvalidate(() => {
+  //   console.log('onInvalidate before')
+  // })
+})
+
+const stop = watchEffect((onInvalidate) => {
+  onInvalidate(() => {})
+})
+
+const stopWatch = () => stop()
+
 </script>
 
 <template>
@@ -219,6 +256,19 @@ const searchData = computed(() => {
         </tr>
       </tfoot>
     </table>
+  </div>
+  <div>------*-------</div>
+  <div>watch练习</div>
+  <div>------*-------</div>
+  <div>
+    <input type="text" v-model="message">
+    <input type="text" v-model="message1">
+    <div>
+      <button @click="stopWatch">停止监听</button>
+    </div>
+  </div>
+  <div>
+    <input type="text" v-model="message2.foo.bar.name">
   </div>
 </template>
 
